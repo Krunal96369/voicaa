@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>voicaa</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: #fff;
+    }
+
+    .card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: #4a9eff;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .row>* {
+      flex: 1;
+    }
+
+    button {
+      padding: 0.7rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #btn-talk {
+      background: #22c55e;
+      color: #000;
+    }
+
+    #btn-talk:hover:not(:disabled) {
+      background: #16a34a;
+    }
+
+    #btn-talk.recording {
+      background: #ef4444;
+    }
+
+    #btn-talk.recording:hover {
+      background: #dc2626;
+    }
+
+    #btn-stop {
+      background: #333;
+      color: #e0e0e0;
+    }
+
+    #btn-stop:hover:not(:disabled) {
+      background: #444;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 1rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+    }
+
+    .status-dot.connected {
+      background: #22c55e;
+    }
+
+    .status-dot.connecting {
+      background: #f59e0b;
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.error {
+      background: #ef4444;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .visualizer {
+      height: 48px;
+      background: #0a0a0a;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .transcript-container {
+      margin-bottom: 1rem;
+    }
+
+    .transcript {
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 0.8rem;
+      min-height: 60px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #ccc;
+      word-wrap: break-word;
+    }
+
+    .transcript:empty::before {
+      content: 'Transcript will appear here...';
+      color: #444;
+      font-style: italic;
+    }
+
+    .transcript .token {
+      transition: color 0.3s;
+    }
+
+    .transcript .token.new {
+      color: #4a9eff;
+    }
+
+    .info {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>voicaa</h1>
+  <div class="card">
+    <div class="status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Disconnected</span>
+    </div>
+    <label>Model</label>
+    <select id="model-select">
+      <option value="">Loading...</option>
+    </select>
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="voice-select">
+          <option value="">Default</option>
+        </select>
+      </div>
+      <div>
+        <label>Port</label>
+        <input type="number" id="port-input" placeholder="auto">
+      </div>
+    </div>
+    <label>Prompt</label>
+    <input type="text" id="prompt-input" placeholder="Optional system prompt...">
+    <div class="visualizer">
+      <canvas id="visualizer"></canvas>
+    </div>
+    <div class="transcript-container">
+      <label>Transcript</label>
+      <div class="transcript" id="transcript"></div>
+    </div>
+    <div class="row">
+      <button id="btn-talk" disabled>Talk</button>
+      <button id="btn-stop" disabled>Stop Model</button>
+    </div>
+  </div>
+  <div class="info">voicaa — Ollama for voice</div>
+  <script>
+    const API = '';
+    let ws = null;
+    let audioCtx = null;
+    let mediaStream = null;
+    let processor = null;
+    let isRecording = false;
+
+    const modelSelect = document.getElementById('model-select');
+    const voiceSelect = document.getElementById('voice-select');
+    const portInput = document.getElementById('port-input');
+    const promptInput = document.getElementById('prompt-input');
+    const btnTalk = document.getElementById('btn-talk');
+    const btnStop = document.getElementById('btn-stop');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+    const transcriptEl = document.getElementById('transcript');
+
+    function setStatus(state, text) {
+      statusDot.className = 'status-dot ' + state;
+      statusText.textContent = text;
+    }
+
+    async function fetchJSON(url) {
+      const resp = await fetch(API + url);
+      return resp.json();
+    }
+
+    async function postJSON(url, body) {
+      const resp = await fetch(API + url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return resp.json();
+    }
+
+    async function loadModels() {
+      try {
+        const [registry, running] = await Promise.all([
+          fetchJSON('/api/v1/models/registry'),
+          fetchJSON('/api/v1/ps')
+        ]);
+
+        modelSelect.innerHTML = '';
+
+        // Show running models first
+        if (running && running.length > 0) {
+          const group = document.createElement('optgroup');
+          group.label = 'Running';
+          running.forEach(inst => {
+            const opt = document.createElement('option');
+            opt.value = inst.model;
+            opt.textContent = inst.model + ' (port ' + inst.port + ')';
+            opt.dataset.running = 'true';
+            opt.dataset.port = inst.port;
+            group.appendChild(opt);
+          });
+          modelSelect.appendChild(group);
+        }
+
+        // Then registry models
+        if (registry && registry.length > 0) {
+          const group = document.createElement('optgroup');
+          group.label = 'Available';
+          registry.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = m.name + (m.gated ? ' (gated)' : '');
+            group.appendChild(opt);
+          });
+          modelSelect.appendChild(group);
+        }
+
+        updateButtons();
+      } catch (e) {
+        modelSelect.innerHTML = '<option value="">Cannot reach daemon</option>';
+        setStatus('error', 'Cannot reach daemon');
+      }
+    }
+
+    async function loadVoices() {
+      const model = modelSelect.value;
+      if (!model) return;
+
+      voiceSelect.innerHTML = '<option value="">Default</option>';
+      try {
+        const voices = await fetchJSON('/api/v1/models/' + model + '/voices');
+        if (voices && voices.length > 0) {
+          voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = v.name + ' (' + v.gender + ')' + (v.default ? ' *' : '');
+            voiceSelect.appendChild(opt);
+          });
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function updateButtons() {
+      const selected = modelSelect.selectedOptions[0];
+      const isRunning = selected && selected.dataset.running === 'true';
+      btnTalk.disabled = !modelSelect.value;
+      btnStop.disabled = !isRunning;
+      if (isRunning) {
+        setStatus('connected', 'Model running on port ' + selected.dataset.port);
+      } else {
+        setStatus('', 'Disconnected');
+      }
+    }
+
+    modelSelect.addEventListener('change', () => {
+      loadVoices();
+      updateButtons();
+      if (ws) disconnectWS();
+    });
+
+    btnStop.addEventListener('click', async () => {
+      const model = modelSelect.value;
+      if (!model) return;
+      btnStop.disabled = true;
+      setStatus('connecting', 'Stopping...');
+      try {
+        await postJSON('/api/v1/stop', { model });
+        setStatus('', 'Stopped');
+        setTimeout(loadModels, 500);
+      } catch (e) {
+        setStatus('error', 'Stop failed');
+      }
+    });
+
+    btnTalk.addEventListener('click', async () => {
+      if (isRecording) {
+        stopRecording();
+        return;
+      }
+
+      const model = modelSelect.value;
+      if (!model) return;
+
+      const selected = modelSelect.selectedOptions[0];
+      const isRunning = selected && selected.dataset.running === 'true';
+
+      // If model isn't running, start it
+      if (!isRunning) {
+        setStatus('connecting', 'Starting model...');
+        btnTalk.disabled = true;
+        try {
+          const port = portInput.value ? parseInt(portInput.value) : 0;
+          await postJSON('/api/v1/serve', {
+            model,
+            port,
+            voice: voiceSelect.value,
+            prompt: promptInput.value,
+            device: 'cuda'
+          });
+          await loadModels();
+        } catch (e) {
+          setStatus('error', 'Failed to start: ' + (e.message || e));
+          btnTalk.disabled = false;
+          return;
+        }
+      }
+
+      startRecording();
+    });
+
+    function clearTranscript() {
+      transcriptEl.innerHTML = '';
+    }
+
+    function appendTranscript(text) {
+      const span = document.createElement('span');
+      span.className = 'token new';
+      span.textContent = text;
+      transcriptEl.appendChild(span);
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+      // Fade highlight after a moment
+      setTimeout(() => { span.classList.remove('new'); }, 400);
+    }
+
+    async function startRecording() {
+      const model = modelSelect.value;
+      const voice = voiceSelect.value;
+      const prompt = promptInput.value;
+
+      let wsURL = 'ws://' + location.host + '/api/v1/ws/' + model;
+      const params = new URLSearchParams();
+      if (voice) params.set('voice', voice);
+      if (prompt) params.set('prompt', prompt);
+      if (params.toString()) wsURL += '?' + params.toString();
+
+      setStatus('connecting', 'Connecting...');
+      clearTranscript();
+
+      try {
+        // Get mic access
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Create audio context
+        audioCtx = new AudioContext({ sampleRate: 16000 });
+        const source = audioCtx.createMediaStreamSource(mediaStream);
+
+        // Create script processor for raw PCM
+        processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+        // Connect WebSocket
+        ws = new WebSocket(wsURL);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = () => {
+          setStatus('connected', 'Connected — speak now');
+          isRecording = true;
+          btnTalk.textContent = 'Stop';
+          btnTalk.classList.add('recording');
+          btnTalk.disabled = false;
+
+          processor.onaudioprocess = (e) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              const pcm = e.inputBuffer.getChannelData(0);
+              const int16 = new Int16Array(pcm.length);
+              for (let i = 0; i < pcm.length; i++) {
+                int16[i] = Math.max(-32768, Math.min(32767, pcm[i] * 32768));
+              }
+              // Frame with 0x01 audio type prefix per Moshi protocol
+              const frame = new Uint8Array(1 + int16.byteLength);
+              frame[0] = 0x01;
+              frame.set(new Uint8Array(int16.buffer), 1);
+              ws.send(frame.buffer);
+            }
+          };
+
+          source.connect(processor);
+          processor.connect(audioCtx.destination);
+          drawVisualizer(source);
+        };
+
+        ws.onmessage = (e) => {
+          if (!(e.data instanceof ArrayBuffer) || !audioCtx) return;
+
+          const view = new Uint8Array(e.data);
+          if (view.length === 0) return;
+
+          const kind = view[0];
+          const payload = e.data.slice(1);
+
+          switch (kind) {
+            case 0x00:
+              // Handshake — connection established with model
+              break;
+            case 0x01:
+              // Audio frame (Opus-encoded)
+              playAudio(payload);
+              break;
+            case 0x02:
+              // Text token
+              if (payload.byteLength > 0) {
+                const text = new TextDecoder().decode(payload);
+                appendTranscript(text);
+              }
+              break;
+          }
+        };
+
+        ws.onclose = () => {
+          if (isRecording) stopRecording();
+          setStatus('', 'Disconnected');
+        };
+
+        ws.onerror = () => {
+          setStatus('error', 'Connection error');
+          if (isRecording) stopRecording();
+        };
+
+      } catch (e) {
+        setStatus('error', 'Mic access denied');
+        btnTalk.disabled = false;
+      }
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      btnTalk.textContent = 'Talk';
+      btnTalk.classList.remove('recording');
+
+      if (processor) { processor.disconnect(); processor = null; }
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+      if (ws) { ws.close(); ws = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+
+      setStatus('', 'Disconnected');
+    }
+
+    function disconnectWS() {
+      if (isRecording) stopRecording();
+    }
+
+    // Simple audio playback queue
+    const audioQueue = [];
+    let isPlaying = false;
+
+    function playAudio(buffer) {
+      audioQueue.push(buffer);
+      if (!isPlaying) drainQueue();
+    }
+
+    async function drainQueue() {
+      isPlaying = true;
+      while (audioQueue.length > 0) {
+        const buf = audioQueue.shift();
+        try {
+          if (audioCtx && audioCtx.state !== 'closed') {
+            const audioBuf = await audioCtx.decodeAudioData(buf.slice(0));
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuf;
+            source.connect(audioCtx.destination);
+            source.start();
+            await new Promise(resolve => { source.onended = resolve; });
+          }
+        } catch (e) { /* skip undecodable chunks */ }
+      }
+      isPlaying = false;
+    }
+
+    // Visualizer
+    function drawVisualizer(source) {
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const bufLen = analyser.frequencyBinCount;
+      const data = new Uint8Array(bufLen);
+
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = canvas.offsetHeight * 2;
+
+      function draw() {
+        if (!isRecording) {
+          canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(data);
+
+        canvasCtx.fillStyle = '#0a0a0a';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barW = (canvas.width / bufLen) * 2.5;
+        let x = 0;
+        for (let i = 0; i < bufLen; i++) {
+          const h = (data[i] / 255) * canvas.height;
+          canvasCtx.fillStyle = `hsl(${150 + data[i] * 0.4}, 70%, ${40 + data[i] * 0.15}%)`;
+          canvasCtx.fillRect(x, canvas.height - h, barW - 1, h);
+          x += barW;
+        }
+      }
+      draw();
+    }
+
+    // Init
+    loadModels();
+  </script>
+</body>
+
+</html>

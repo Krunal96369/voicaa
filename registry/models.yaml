@@ -1,0 +1,398 @@
+registry_version: "1"
+
+models:
+  - name: moshi
+    aliases:
+      - moshika
+      - moshika-7b
+    version: "1.0.0"
+    description: >-
+      Kyutai's full-duplex speech-to-speech model. Real-time
+      conversational AI with natural turn-taking. 7B parameters.
+    license: "CC-BY-4.0"
+    huggingface:
+      repo: "kyutai/moshika-pytorch-bf16"
+      gated: false
+      files:
+        - name: "model.safetensors"
+          size: 15375500136
+          required: true
+          description: "Moshi LM weights (7B params, bf16 safetensors)"
+        - name: "tokenizer-e351c8d8-checkpoint125.safetensors"
+          size: 384644900
+          required: true
+          description: "Mimi audio codec weights"
+        - name: "tokenizer_spm_32k_3.model"
+          size: 552778
+          required: true
+          description: "SentencePiece text tokenizer (32k vocab)"
+
+    docker:
+      image: "ghcr.io/krunal96369/moshi:v1"
+      base_image: "nvcr.io/nvidia/cuda:12.4.1-runtime-ubuntu22.04"
+      platform: "linux/amd64"
+
+    entrypoint:
+      server_cmd:
+        - "python"
+        - "-m"
+        - "moshi.server"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "{{.Port}}"
+        - "--hf-repo"
+        - "{{.HFRepo}}"
+        - "--static"
+        - "none"
+      health_check:
+        type: "tcp"
+        timeout_sec: 300
+        interval_sec: 5
+      env:
+        NO_TORCH_COMPILE: "1"
+      workdir: "/app"
+      default_port: 8998
+
+    voices:
+      archive_file: ""
+      extract_dir: ""
+      default_voice: ""
+      voices: []
+
+    requirements:
+      gpu_required: true
+      min_vram_gb: 24
+      min_vram_with_offload_gb: 12
+      min_ram_gb: 16
+      disk_space_gb: 18
+
+  - name: personaplex
+    aliases:
+      - personaplex-7b
+      - personaplex-7b-v1
+      - pp7b
+    version: "1.0.0"
+    description: >-
+      NVIDIA's full-duplex voice model with persona control through
+      text prompts and voice conditioning. Based on Moshi, 7B parameters.
+    license: "NVIDIA-Open-Model-License"
+    huggingface:
+      repo: "nvidia/personaplex-7b-v1"
+      gated: true
+      files:
+        - name: "model.safetensors"
+          size: 14680064000
+          required: true
+          description: "Moshi LM weights (7B params, safetensors)"
+        - name: "tokenizer-e351c8d8-checkpoint125.safetensors"
+          size: 2097152
+          required: true
+          description: "Mimi audio codec weights"
+        - name: "tokenizer_spm_32k_3.model"
+          size: 819200
+          required: true
+          description: "SentencePiece text tokenizer (32k vocab)"
+        - name: "voices.tgz"
+          size: 524288000
+          required: true
+          description: "Voice prompt embeddings archive (18 voices)"
+          post_extract: "voices"
+        - name: "config.json"
+          size: 4096
+          required: false
+          description: "Model configuration metadata"
+
+    docker:
+      image: "ghcr.io/krunal96369/personaplex:v1"
+      base_image: "nvcr.io/nvidia/cuda:12.4.1-runtime-ubuntu22.04"
+      platform: "linux/amd64"
+
+    entrypoint:
+      server_cmd:
+        - "/app/moshi/.venv/bin/python"
+        - "-m"
+        - "moshi.server"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "{{.Port}}"
+        - "--moshi-weight"
+        - "{{.MoshiWeight}}"
+        - "--mimi-weight"
+        - "{{.MimiWeight}}"
+        - "--tokenizer"
+        - "{{.Tokenizer}}"
+        - "--voice-prompt-dir"
+        - "{{.VoicePromptDir}}"
+        - "--static"
+        - "none"
+      health_check:
+        type: "tcp"
+        timeout_sec: 300
+        interval_sec: 5
+      env:
+        NO_TORCH_COMPILE: "1"
+      workdir: "/app/moshi"
+      default_port: 8998
+
+    voices:
+      archive_file: "voices.tgz"
+      extract_dir: "voices"
+      default_voice: "NATF2"
+      voices:
+        - { name: NATF0, file: NATF0.pt, gender: female, category: natural }
+        - { name: NATF1, file: NATF1.pt, gender: female, category: natural }
+        - { name: NATF2, file: NATF2.pt, gender: female, category: natural }
+        - { name: NATF3, file: NATF3.pt, gender: female, category: natural }
+        - { name: NATM0, file: NATM0.pt, gender: male, category: natural }
+        - { name: NATM1, file: NATM1.pt, gender: male, category: natural }
+        - { name: NATM2, file: NATM2.pt, gender: male, category: natural }
+        - { name: NATM3, file: NATM3.pt, gender: male, category: natural }
+        - { name: VARF0, file: VARF0.pt, gender: female, category: variety }
+        - { name: VARF1, file: VARF1.pt, gender: female, category: variety }
+        - { name: VARF2, file: VARF2.pt, gender: female, category: variety }
+        - { name: VARF3, file: VARF3.pt, gender: female, category: variety }
+        - { name: VARF4, file: VARF4.pt, gender: female, category: variety }
+        - { name: VARM0, file: VARM0.pt, gender: male, category: variety }
+        - { name: VARM1, file: VARM1.pt, gender: male, category: variety }
+        - { name: VARM2, file: VARM2.pt, gender: male, category: variety }
+        - { name: VARM3, file: VARM3.pt, gender: male, category: variety }
+        - { name: VARM4, file: VARM4.pt, gender: male, category: variety }
+
+    requirements:
+      gpu_required: true
+      min_vram_gb: 12
+      min_vram_with_offload_gb: 8
+      min_ram_gb: 16
+      disk_space_gb: 20
+
+  - name: "moshi:q4"
+    aliases:
+      - moshi-mlx
+      - moshi-mlx-q4
+      - moshika-mlx-q4
+    version: "1.0.0"
+    description: >-
+      Kyutai Moshi for Apple Silicon via MLX. Q4 quantization (4.8 GB).
+      Real-time speech-to-speech on Mac without Docker.
+    license: "CC-BY-4.0"
+    backend: mlx
+
+    huggingface:
+      repo: "kyutai/moshika-mlx-q4"
+      gated: false
+      files:
+        - name: "model.q4.safetensors"
+          size: 5033164800
+          required: true
+          description: "Moshi LM weights (7B params, q4 MLX format)"
+        - name: "tokenizer-e351c8d8-checkpoint125.safetensors"
+          size: 384644900
+          required: true
+          description: "Mimi audio codec weights"
+        - name: "tokenizer_spm_32k_3.model"
+          size: 552778
+          required: true
+          description: "SentencePiece text tokenizer (32k vocab)"
+
+    docker:
+      image: ""
+
+    mlx:
+      package: "moshi-mlx"
+      package_ver: ">=0.3.0"
+      hf_repo: "kyutai/moshika-mlx-q4"
+      quantization: "q4"
+
+    entrypoint:
+      server_cmd:
+        - "uv"
+        - "run"
+        - "--with"
+        - "moshi-mlx"
+        - "python"
+        - "-m"
+        - "moshi_mlx.local_web"
+        - "--port"
+        - "{{.Port}}"
+        - "--hf-repo"
+        - "{{.HFRepo}}"
+        - "-q"
+        - "4"
+        - "--no-browser"
+        - "--static"
+        - "none"
+      health_check:
+        type: "tcp"
+        timeout_sec: 120
+        interval_sec: 3
+      env: {}
+      workdir: ""
+      default_port: 8998
+
+    voices:
+      archive_file: ""
+      extract_dir: ""
+      default_voice: ""
+      voices: []
+
+    requirements:
+      gpu_required: false
+      apple_silicon: true
+      min_vram_gb: 0
+      min_vram_with_offload_gb: 0
+      min_ram_gb: 16
+      disk_space_gb: 6
+
+  - name: "moshi:q8"
+    aliases:
+      - moshi-mlx-q8
+      - moshika-mlx-q8
+    version: "1.0.0"
+    description: >-
+      Kyutai Moshi for Apple Silicon via MLX. Q8 quantization (8.2 GB).
+      Higher quality than q4, requires more memory.
+    license: "CC-BY-4.0"
+    backend: mlx
+
+    huggingface:
+      repo: "kyutai/moshika-mlx-q8"
+      gated: false
+      files:
+        - name: "model.q8.safetensors"
+          size: 8589934592
+          required: true
+          description: "Moshi LM weights (7B params, q8 MLX format)"
+        - name: "tokenizer-e351c8d8-checkpoint125.safetensors"
+          size: 384644900
+          required: true
+          description: "Mimi audio codec weights"
+        - name: "tokenizer_spm_32k_3.model"
+          size: 552778
+          required: true
+          description: "SentencePiece text tokenizer (32k vocab)"
+
+    docker:
+      image: ""
+
+    mlx:
+      package: "moshi-mlx"
+      package_ver: ">=0.3.0"
+      hf_repo: "kyutai/moshika-mlx-q8"
+      quantization: "q8"
+
+    entrypoint:
+      server_cmd:
+        - "uv"
+        - "run"
+        - "--with"
+        - "moshi-mlx"
+        - "python"
+        - "-m"
+        - "moshi_mlx.local_web"
+        - "--port"
+        - "{{.Port}}"
+        - "--hf-repo"
+        - "{{.HFRepo}}"
+        - "-q"
+        - "8"
+        - "--no-browser"
+        - "--static"
+        - "none"
+      health_check:
+        type: "tcp"
+        timeout_sec: 180
+        interval_sec: 3
+      env: {}
+      workdir: ""
+      default_port: 8998
+
+    voices:
+      archive_file: ""
+      extract_dir: ""
+      default_voice: ""
+      voices: []
+
+    requirements:
+      gpu_required: false
+      apple_silicon: true
+      min_vram_gb: 0
+      min_vram_with_offload_gb: 0
+      min_ram_gb: 24
+      disk_space_gb: 10
+
+  - name: "moshi:bf16"
+    aliases:
+      - moshi-mlx-bf16
+      - moshika-mlx-bf16
+    version: "1.0.0"
+    description: >-
+      Kyutai Moshi for Apple Silicon via MLX. BF16 full precision (15.4 GB).
+      Highest quality, requires 32+ GB unified memory.
+    license: "CC-BY-4.0"
+    backend: mlx
+
+    huggingface:
+      repo: "kyutai/moshika-mlx-bf16"
+      gated: false
+      files:
+        - name: "model.safetensors"
+          size: 16106127360
+          required: true
+          description: "Moshi LM weights (7B params, bf16 MLX format)"
+        - name: "tokenizer-e351c8d8-checkpoint125.safetensors"
+          size: 384644900
+          required: true
+          description: "Mimi audio codec weights"
+        - name: "tokenizer_spm_32k_3.model"
+          size: 552778
+          required: true
+          description: "SentencePiece text tokenizer (32k vocab)"
+
+    docker:
+      image: ""
+
+    mlx:
+      package: "moshi-mlx"
+      package_ver: ">=0.3.0"
+      hf_repo: "kyutai/moshika-mlx-bf16"
+      quantization: "bf16"
+
+    entrypoint:
+      server_cmd:
+        - "uv"
+        - "run"
+        - "--with"
+        - "moshi-mlx"
+        - "python"
+        - "-m"
+        - "moshi_mlx.local_web"
+        - "--port"
+        - "{{.Port}}"
+        - "--hf-repo"
+        - "{{.HFRepo}}"
+        - "--no-browser"
+        - "--static"
+        - "none"
+      health_check:
+        type: "tcp"
+        timeout_sec: 300
+        interval_sec: 5
+      env: {}
+      workdir: ""
+      default_port: 8998
+
+    voices:
+      archive_file: ""
+      extract_dir: ""
+      default_voice: ""
+      voices: []
+
+    requirements:
+      gpu_required: false
+      apple_silicon: true
+      min_vram_gb: 0
+      min_vram_with_offload_gb: 0
+      min_ram_gb: 32
+      disk_space_gb: 18
